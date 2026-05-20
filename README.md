@@ -1,4 +1,4 @@
-Originally fork of [BLK-to-JSON](https://github.com/REFORDER/BLK-to-JSON)
+<p align="center">Originally fork of [BLK-to-JSON](https://github.com/REFORDER/BLK-to-JSON)</p>
 
 <h1 align="center">WTD ⇄ WT Converter</h1>
 
