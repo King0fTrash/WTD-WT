@@ -8,8 +8,5 @@ Originally fork of [BLK-to-JSON](https://github.com/REFORDER/BLK-to-JSON)
 <p align="center">
   <img src="https://i.ibb.co/xSPv8638/image.png" alt="Предпросмотр">
 </p>
-
-
-https://ibb.co/d0FqvvXW
-
-https://ibb.co/M5k6PmdN
+<h3>При конвертации .blk⇄.json отображаеться примитивная миниатюра-предпросмотр самого прицела</h3>
+> [!WARNING] Есть небольшие проблемы с отображением квадратов
