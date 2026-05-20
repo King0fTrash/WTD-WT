@@ -6,7 +6,7 @@ Originally fork of [BLK-to-JSON](https://github.com/REFORDER/BLK-to-JSON)
 
 <h3 align="center">Предпросмотр прицела</h3>
 <p align="center">
-  <img src="[прямая_ссылка_на_картинку](https://ibb.co/VWrypT3p)" width="600" alt="Предпросмотр">
+  <img src="https://ibb.co/VWrypT3p" width="600" alt="Предпросмотр">
 </p>
 
 
