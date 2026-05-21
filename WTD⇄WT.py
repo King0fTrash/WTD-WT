@@ -172,9 +172,20 @@ class ConverterApp:
     def __init__(self, root):
         self.root = root
         self.root.title("WTDraw ⇄ War Thunder BLK")
-        self.root.geometry("840x620")
+        self.root.geometry("1100x580") 
         self.root.resizable(False, False)
-        self.root.configure(bg="#1e1e1e")
+        
+        self.bg_canvas = "#0b0b0b"       
+        self.bg_main = "#1a1a1a"         
+        self.bg_sidebar = "#222222"      
+        self.bg_widgets = "#2c2c2c"      
+        self.bg_hover = "#3a3a3a"        
+        self.bg_hover_green = "#1a3d1a"  
+        self.fg_primary = "#e0e0e0"      
+        self.fg_muted = "#888888"        
+        self.fg_accent = "#1fef1f"       
+        
+        self.root.configure(bg=self.bg_main)
         self.root.after(100, self.apply_dark_theme)
         
         icon_name = "ico.ico"
@@ -190,43 +201,51 @@ class ConverterApp:
         
         self.current_file_path = None
         self.current_json_data = {}
-        self.canvas_w = 800
-        self.canvas_h = 450
-        self.sight_color = "#00ffff" 
-        self.settings_expanded = False
+        
+        self.canvas_w = 740
+        self.canvas_h = 410
+        self.sight_color = "#ffffff"
+        
+        self.settings_expanded = True
         
         self.color_palette = [
-            ("Голубой", "#00ffff"), 
-            ("Зелёный", "#1fef1f"), 
-            ("Красный", "#ff1e1e"), 
-            ("Белый", "#ffffff"), 
+            ("Белый", "#ffffff"),
+            ("Зелёный", "#1fef1f"),
+            ("Голубой", "#00ffff"),
+            ("Красный", "#ff1e1e"),
             ("Жёлтый", "#ffff00")
         ]
         self.current_color_idx = 0
         
         self.zoom_scale = 1.0
         self.offset_x = 0.0
-        self.offset_y = 0.0
+        self.offset_y = 0.0  
         self.drag_start_x = 0
         self.drag_start_y = 0
         
-        self.main_frame = tk.Frame(root, bg="#1e1e1e", width=840, height=620)
-        self.main_frame.pack(side="left", fill="both", expand=True)
-        self.main_frame.pack_propagate(False)
+        self.last_mouse_x = self.canvas_w / 2
+        self.last_mouse_y = self.canvas_h / 2
+        
+        self.main_container = tk.Frame(root, bg=self.bg_main)
+        self.main_container.pack(fill="both", expand=True)
+        
+        self.left_frame = tk.Frame(self.main_container, bg=self.bg_main, width=770, height=540)
+        self.left_frame.pack(side="left", fill="both", expand=True)
+        self.left_frame.pack_propagate(False)
         
         self.drop_label = tk.Label(
-            self.main_frame, text="Перетащи сюда .blk (в JSON) или .json (в BLK)\nили кликни для выбора файла", 
-            relief="flat", bg="#2d2d2d", fg="#ffffff", font=("Arial", 10, "bold"), height=3
+            self.left_frame, text="Перетащите сюда файл .blk / .json или кликните для выбора",
+            relief="flat", bg=self.bg_widgets, fg=self.fg_primary, font=("Segoe UI", 9, "bold"), height=2
         )
-        self.drop_label.pack(fill="x", padx=20, pady=15)
+        self.drop_label.pack(fill="x", padx=15, pady=(15, 5))
         self.drop_label.bind("<Button-1>", self.handle_click)
-        self.drop_label.bind("<Enter>", lambda e: self.drop_label.config(bg="#3d3d3d"))
-        self.drop_label.bind("<Leave>", lambda e: self.drop_label.config(bg="#2d2d2d"))
+        self.drop_label.bind("<Enter>", lambda e: self.drop_label.config(bg=self.bg_hover))
+        self.drop_label.bind("<Leave>", lambda e: self.drop_label.config(bg=self.bg_widgets))
         
-        self.canvas_container = tk.Frame(self.main_frame, bg="#1e1e1e")
-        self.canvas_container.pack(padx=20, pady=5)
+        self.canvas_container = tk.Frame(self.left_frame, bg=self.bg_main)
+        self.canvas_container.pack(padx=15, pady=5)
         
-        self.canvas = tk.Canvas(self.canvas_container, width=self.canvas_w, height=self.canvas_h, bg="#0b0b0b", highlightbackground="#2d2d2d", highlightthickness=1)
+        self.canvas = tk.Canvas(self.canvas_container, width=self.canvas_w, height=self.canvas_h, bg=self.bg_canvas, highlightbackground=self.bg_widgets, highlightthickness=1)
         self.canvas.pack()
         
         self.canvas.bind("<MouseWheel>", self.handle_zoom)
@@ -234,52 +253,142 @@ class ConverterApp:
         self.canvas.bind("<B3-Motion>", self.pan_canvas)
         self.canvas.bind("<Motion>", self.track_coordinates)
         
-        self.bottom_bar = tk.Frame(self.main_frame, bg="#121212")
-        self.bottom_bar.pack(fill="x", side="bottom")
+        self.hint_panel = tk.Frame(self.left_frame, bg=self.bg_widgets)
+        self.hint_panel.pack(fill="x", padx=15, pady=(11, 10))
         
-        self.status_label = tk.Label(self.bottom_bar, text="Статус: Ожидание файла (.blk или .json)...", bd=0, relief="flat", anchor="w", bg="#121212", fg="#aaaaaa", font=("Arial", 10), padx=10)
-        self.status_label.pack(side="left", fill="x", expand=True, ipady=8)
+        try: pywinstyles.apply_style(self.hint_panel, "dark")
+        except Exception: pass
         
-        self.clear_btn = tk.Button(self.bottom_bar, text="❌ Очистить", bg="#2a2a2a", fg="#ff4d4d", relief="flat", activebackground="#3a1a1a", font=("Arial", 9, "bold"), padx=10, command=self.clear_canvas)
-        self.clear_btn.pack(side="right", padx=(0, 5), pady=4)
+        real_hint_text = (
+            "Перемещение: [ПКМ] + movement мыши      •      Масштаб: [Колёсико мыши]\n"
+            "Перезагрузить файл: [F5]      •      Сохранить / Конвертировать: [Ctrl + S]"
+        )
         
-        self.reset_zoom_btn = tk.Button(self.bottom_bar, text="🔍 Сброс зума", bg="#2a2a2a", fg="#ffffff", relief="flat", activebackground="#3a3a3a", font=("Arial", 9, "bold"), padx=10, command=self.reset_view)
-        self.reset_zoom_btn.pack(side="right", padx=(0, 5), pady=4)
-
-        self.settings_btn = tk.Button(self.bottom_bar, text="⚙ Настройки BLK", bg="#2a2a2a", fg="#ffffff", relief="flat", activebackground="#3a3a3a", font=("Arial", 9, "bold"), padx=10, command=self.toggle_settings)
-        self.settings_btn.pack(side="right", padx=10, pady=4)
-
-        self.settings_frame = tk.Frame(root, bg="#252525", width=360, height=620)
+        self.hint_text_lbl = tk.Label(
+            self.hint_panel, text=real_hint_text, bg=self.bg_widgets, fg=self.fg_primary, 
+            font=("Segoe UI", 9), justify="center", pady=6, wraplength=650
+        )
+        self.hint_text_lbl.pack(side="left", fill="x", expand=True, padx=(30, 0))
         
-        self.color_bar = tk.Frame(self.settings_frame, bg="#252525")
-        self.color_bar.pack(fill="x", padx=15, pady=15)
+        self.close_hint_btn = tk.Button(
+            self.hint_panel, text="✖", bg=self.bg_widgets, fg=self.fg_muted, relief="flat",
+            activebackground=self.bg_hover, activeforeground=self.fg_primary, font=("Segoe UI", 9, "bold"),
+            command=self.hide_hint_panel, cursor="hand2", bd=0, padx=12
+        )
+        self.close_hint_btn.pack(side="right", fill="y")
+        self.close_hint_btn.bind("<Enter>", lambda e: self.close_hint_btn.config(fg=self.fg_primary))
+        self.close_hint_btn.bind("<Leave>", lambda e: self.close_hint_btn.config(fg=self.fg_muted))
         
-        self.color_label = tk.Label(self.color_bar, text="Цвет прицела ↕:", bg="#252525", fg="#00ffff", font=("Arial", 9, "bold"), cursor="sb_v_double_arrow")
-        self.color_label.pack(side="left", padx=(0, 5))
-        self.color_label.bind("<MouseWheel>", self.handle_color_scroll)
+        self.sidebar = tk.Frame(self.main_container, bg=self.bg_sidebar, width=330, height=540)
+        self.sidebar.pack(side="right", fill="both")
+        self.sidebar.pack_propagate(False)
+        
+        self.sidebar_title = tk.Label(self.sidebar, text="УПРАВЛЕНИЕ", bg=self.bg_sidebar, fg=self.fg_muted, font=("Segoe UI", 9, "bold"))
+        self.sidebar_title.pack(fill="x", pady=(18, 10))
+        
+        self.convert_btn = tk.Button(
+            self.sidebar, text="🚀  Конвертировать файл", bg=self.bg_widgets, fg=self.fg_primary, relief="flat", 
+            activebackground=self.bg_hover_green, activeforeground=self.fg_primary, font=("Segoe UI", 10, "bold"), height=2, command=self.trigger_conversion, cursor="hand2"
+        )
+        self.convert_btn.pack(fill="x", padx=18, pady=5)
+        self.convert_btn.bind("<Enter>", lambda e: self.convert_btn.config(bg=self.bg_hover_green, fg=self.fg_primary))
+        self.convert_btn.bind("<Leave>", lambda e: self.convert_btn.config(bg=self.bg_widgets, fg=self.fg_primary))
+        
+        self.btn_grid = tk.Frame(self.sidebar, bg=self.bg_sidebar)
+        self.btn_grid.pack(fill="x", padx=18, pady=5)
+        
+        self.reset_zoom_btn = tk.Button(
+            self.btn_grid, text="🔍 Сбросить вид", bg=self.bg_widgets, fg=self.fg_primary, relief="flat",
+            activebackground=self.bg_hover, activeforeground=self.fg_primary, font=("Segoe UI", 9, "bold"), width=13, pady=6, command=self.reset_view, cursor="hand2"
+        )
+        self.reset_zoom_btn.pack(side="left", expand=True, fill="x", padx=(0, 4))
+        self.reset_zoom_btn.bind("<Enter>", lambda e: self.reset_zoom_btn.config(bg=self.bg_hover))
+        self.reset_zoom_btn.bind("<Leave>", lambda e: self.reset_zoom_btn.config(bg=self.bg_widgets))
+        
+        self.clear_btn = tk.Button(
+            self.btn_grid, text="❌ Очистить всё", bg=self.bg_widgets, fg="#ff4d4d", relief="flat",
+            activebackground="#3d2222", activeforeground="#ff4d4d", font=("Segoe UI", 9, "bold"), width=13, pady=6, command=self.clear_canvas, cursor="hand2"
+        )
+        self.clear_btn.pack(side="right", expand=True, fill="x", padx=(4, 0))
+        self.clear_btn.bind("<Enter>", lambda e: self.clear_btn.config(bg="#3a2727"))
+        self.clear_btn.bind("<Leave>", lambda e: self.clear_btn.config(bg=self.bg_widgets))
+        
+        self.settings_btn = tk.Button(
+            self.sidebar, text="⚙  Настройки blk", bg=self.bg_widgets, fg=self.fg_primary, relief="flat",
+            activebackground=self.bg_hover, font=("Segoe UI", 9, "bold"), pady=7, command=self.toggle_settings, cursor="hand2"
+        )
+        self.settings_btn.pack(fill="x", padx=18, pady=(15, 5))
+        self.settings_btn.bind("<Enter>", lambda e: self.settings_btn.config(bg=self.bg_hover))
+        self.settings_btn.bind("<Leave>", lambda e: self.settings_btn.config(bg=self.bg_widgets))
+        
+        self.settings_subframe = tk.Frame(self.sidebar, bg=self.bg_sidebar)
+        self.settings_subframe.pack(fill="both", expand=True, padx=18)
+        
+        self.color_bar = tk.Frame(self.settings_subframe, bg=self.bg_sidebar)
+        self.color_bar.pack(fill="x", pady=(5, 10))
+        
+        self.color_label = tk.Label(self.color_bar, text="Цвет сетки:", bg=self.bg_sidebar, fg=self.fg_primary, font=("Segoe UI", 9, "bold"))
+        self.color_label.pack(side="left", padx=(0, 10))
         
         for name, hex_code in self.color_palette:
-            btn = tk.Button(self.color_bar, text=name[:1], bg=hex_code if hex_code != "#ffffff" else "#e0e0e0", 
-                            fg="#000000" if hex_code in ["#00ffff", "#1fef1f", "#ffffff", "#ffff00"] else "#ffffff",
-                            relief="flat", font=("Arial", 8, "bold"), width=3, command=lambda c=hex_code: self.change_sight_color(c))
-            btn.pack(side="left", padx=2)
-
-        self.settings_title = tk.Label(self.settings_frame, text="Переменные и Шаблон заголовка BLK:", bg="#252525", fg="#888888", font=("Arial", 9, "bold"), anchor="w")
-        self.settings_title.pack(fill="x", padx=15, pady=(0, 5))
-        self.text_editor = tk.Text(self.settings_frame, bg="#1a1a1a", fg="#e0e0e0", insertbackground="#ffffff", selectbackground="#444444", font=("Consolas", 10), relief="flat", undo=True, maxundo=100)
-        self.text_editor.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+            btn = tk.Button(self.color_bar, text="■", bg=self.bg_sidebar, fg=hex_code,
+                            relief="flat", font=("Segoe UI", 12), width=2, activebackground=self.bg_sidebar, activeforeground=hex_code,
+                            command=lambda c=hex_code: self.change_sight_color(c), cursor="hand2", bd=0)
+            btn.pack(side="left", padx=1)
+            
+        self.text_editor = tk.Text(
+            self.settings_subframe, bg=self.bg_canvas, fg=self.fg_primary, insertbackground=self.fg_primary,
+            selectbackground=self.bg_hover, font=("Consolas", 9), relief="flat", undo=True, maxundo=100
+        )
+        self.text_editor.pack(fill="both", expand=True, pady=(0, 15))
         self.text_editor.delete("1.0", tk.END)
         self.text_editor.insert("1.0", DEFAULT_HEADER)
         self.text_editor.bind("<Key>", self.intercept_typing)
         
+        self.bottom_bar = tk.Frame(root, bg=self.bg_canvas, height=30)
+        self.bottom_bar.pack(fill="x", side="bottom")
+        
+        self.status_label = tk.Label(
+            self.bottom_bar, text="Статус: Ожидание импорта чертежа (.blk / .json)",
+            bd=0, relief="flat", anchor="w", bg=self.bg_canvas, fg=self.fg_muted, font=("Segoe UI", 9), padx=15
+        )
+        self.status_label.pack(side="left", fill="x", expand=True, ipady=6)
+        
+        self.show_hint_btn = tk.Button(
+            self.bottom_bar, text="📋 Показать подсказку", bg=self.bg_canvas, fg=self.fg_primary,
+            relief="flat", activebackground=self.bg_widgets, activeforeground=self.fg_primary, font=("Segoe UI", 9, "underline"), 
+            command=self.show_hint_panel, cursor="hand2", bd=0
+        )
+        self.show_hint_btn.pack_forget()
+        
         self.root.bind("<F5>", lambda e: self.reload_current_file())
+        self.root.bind("<Control-s>", lambda e: self.trigger_conversion_hotkey())
         
         windnd.hook_dropfiles(self.root, func=self.handle_drop)
+        
+        self.grid_line_ids = []
+        self.axis_line_ids = []
+        self.frame_line_ids = []
+        self.sight_element_ids = []
+        
+        self.init_canvas_objects()
         self.redraw_sight()
 
     def apply_dark_theme(self):
         try: pywinstyles.apply_style(self.root, "dark")
         except Exception: pass
+
+    def hide_hint_panel(self):
+        self.hint_panel.pack_forget()
+        self.show_hint_btn.pack(side="right", padx=15, ipady=3)
+        
+    def show_hint_panel(self):
+        self.show_hint_btn.pack_forget()
+        self.hint_panel.pack(fill="x", padx=15, pady=(11, 10))
+        
+    def log_message(self, message, color=None):
+        if color is None: color = self.fg_muted
+        self.status_label.config(text=message, fg=color)
         
     def get_editable_ranges(self):
         content = self.text_editor.get("1.0", tk.END)
@@ -308,7 +417,7 @@ class ConverterApp:
         
     def intercept_typing(self, event):
         if event.state & 4:
-            if event.keysym.lower() in ['c', 'z']: return None
+            if event.keysym.lower() in ['c', 'z', 's']: return None
         if event.keysym in ["Up", "Down", "Left", "Right", "Home", "End", "Prior", "Next"]: return None
         content = self.text_editor.get("1.0", tk.END)
         if self.text_editor.tag_ranges("sel"):
@@ -343,15 +452,12 @@ class ConverterApp:
         
     def toggle_settings(self):
         if not self.settings_expanded:
-            self.root.geometry("1200x620")
-            self.settings_frame.pack(side="right", fill="both", expand=True)
-            self.settings_frame.pack_propagate(False)
-            self.settings_btn.config(bg="#00ffff", fg="#121212")
+            self.settings_subframe.pack(fill="both", expand=True, padx=18)
+            self.settings_btn.config(bg=self.bg_widgets, fg=self.fg_primary)
             self.settings_expanded = True
         else:
-            self.settings_frame.pack_forget()
-            self.root.geometry("840x620")
-            self.settings_btn.config(bg="#2a2a2a", fg="#ffffff")
+            self.settings_subframe.pack_forget()
+            self.settings_btn.config(bg=self.bg_main, fg=self.fg_muted)
             self.settings_expanded = False
             
     def change_sight_color(self, hex_code):
@@ -362,25 +468,19 @@ class ConverterApp:
                 break
         self.redraw_sight()
         
-    def handle_color_scroll(self, event):
-        if event.delta > 0:
-            self.current_color_idx = (self.current_color_idx - 1) % len(self.color_palette)
-        else:
-            self.current_color_idx = (self.current_color_idx + 1) % len(self.color_palette)
-        self.sight_color = self.color_palette[self.current_color_idx][1]
-        self.redraw_sight()
-        
     def handle_zoom(self, event):
         mouse_x = event.x
         mouse_y = event.y
-        old_scale = self.zoom_scale
+        center_x = self.canvas_w / 2
+        center_y = self.canvas_h / 2
+        orig_x = (mouse_x - center_x - self.offset_x) / self.zoom_scale
+        orig_y = (mouse_y - center_y - self.offset_y) / self.zoom_scale
         if event.delta > 0: self.zoom_scale *= 1.15
         else:
             self.zoom_scale /= 1.15
             if self.zoom_scale < 0.3: self.zoom_scale = 0.3
-        factor = self.zoom_scale / old_scale
-        self.offset_x = mouse_x - factor * (mouse_x - self.offset_x)
-        self.offset_y = mouse_y - factor * (mouse_y - self.offset_y)
+        self.offset_x = mouse_x - center_x - (orig_x * self.zoom_scale)
+        self.offset_y = mouse_y - center_y - (orig_y * self.zoom_scale)
         self.redraw_sight()
         self.track_coordinates(event)
         
@@ -395,25 +495,32 @@ class ConverterApp:
         self.offset_y += dy
         self.drag_start_x = event.x
         self.drag_start_y = event.y
-        self.redraw_sight()
+        
+        self.update_canvas_positions()
         self.track_coordinates(event)
         
     def track_coordinates(self, event):
+        self.last_mouse_x = event.x
+        self.last_mouse_y = event.y
         center_x = self.canvas_w / 2
         center_y = self.canvas_h / 2
-        wt_x = (event.x - center_x - self.offset_x) / ((self.canvas_w / 2) * self.zoom_scale)
+        
+        wt_x = (event.x - center_x - self.offset_x) / ((self.canvas_w / 2.0) * self.zoom_scale)
         wt_y = (event.y - center_y - self.offset_y) / (self.canvas_h * self.zoom_scale)
-        self.canvas.delete("coord_text")
-        self.canvas.create_text(
-            15, 15, anchor="nw", 
-            text=f"X: {wt_x:+.4f}\nY: {wt_y:+.4f}", 
-            fill="#aaaaaa", font=("Consolas", 10, "bold"), tags="coord_text"
-        )
+        
+        if self.zoom_scale == 1.0 and self.offset_x == 0.0 and self.offset_y == 0.0:
+            if event.x <= 0: wt_x = -1.0
+            elif event.x >= self.canvas_w - 1: wt_x = 1.0
+            if event.y <= 0: wt_y = -0.5
+            elif event.y >= self.canvas_h - 1: wt_y = 0.5
+            
+        self.canvas.coords(self.coord_text_id, 15, 15)
+        self.canvas.itemconfig(self.coord_text_id, text=f"X: {wt_x:+.4f}\nY: {wt_y:+.4f}")
         
     def reset_view(self):
         self.zoom_scale = 1.0
         self.offset_x = 0.0
-        self.offset_y = 0.0
+        self.offset_y = 0.0 
         self.redraw_sight()
         
     def clear_canvas(self):
@@ -422,65 +529,118 @@ class ConverterApp:
         self.text_editor.delete("1.0", tk.END)
         self.text_editor.insert("1.0", DEFAULT_HEADER)
         self.reset_view()
-        self.status_label.config(text="Статус: Холст очищен. Ожидание файла...", fg="#aaaaaa")
+        self.log_message("Статус: Рабочая среда успешно очищена", self.fg_muted)
+
+    def init_canvas_objects(self):
+        for _ in range(120):
+            self.grid_line_ids.append(self.canvas.create_line(0, 0, 0, 0, fill="#131313", width=1))
         
-    def draw_grid_and_cross(self):
-        mid_x = self.canvas_w / 2 + self.offset_x
-        mid_y = self.canvas_h / 2 + self.offset_y
-        grid_step = 50 * self.zoom_scale
-        if grid_step < 5: grid_step = 5
-        x = mid_x
-        while x < self.canvas_w:
-            self.canvas.create_line(x, 0, x, self.canvas_h, fill="#161616", width=1)
-            x += grid_step
-        x = mid_x - grid_step
-        while x > 0:
-            self.canvas.create_line(x, 0, x, self.canvas_h, fill="#161616", width=1)
-            x -= grid_step
-        y = mid_y
-        while y < self.canvas_h:
-            self.canvas.create_line(0, y, self.canvas_w, y, fill="#161616", width=1)
-            y += grid_step
-        y = mid_y - grid_step
-        while y > 0:
-            self.canvas.create_line(0, y, self.canvas_w, y, fill="#161616", width=1)
-            y -= grid_step
-        self.canvas.create_line(mid_x, 0, mid_x, self.canvas_h, fill="#2a2a2a", dash=(4, 4))
-        self.canvas.create_line(0, mid_y, self.canvas_w, mid_y, fill="#2a2a2a", dash=(4, 4))
+        self.axis_line_ids.append(self.canvas.create_line(0, 0, 0, 0, fill="#222222", dash=(4, 4)))
+        self.axis_line_ids.append(self.canvas.create_line(0, 0, 0, 0, fill="#222222", dash=(4, 4)))
         
+        for _ in range(4):
+            self.frame_line_ids.append(self.canvas.create_line(0, 0, 0, 0, fill="#2a2a2a", dash=(4, 4), width=1))
+            
+        self.coord_text_id = self.canvas.create_text(15, 15, anchor="nw", text="", fill=self.fg_muted, font=("Consolas", 10, "bold"))
+
     def to_pixels(self, val, is_y=False):
         if is_y:
             center_y = self.canvas_h / 2
             return center_y + (val * self.canvas_h) * self.zoom_scale + self.offset_y
         else:
             center_x = self.canvas_w / 2
-            return center_x + (val * (self.canvas_w / 2)) * self.zoom_scale + self.offset_x
+            return center_x + (val * (self.canvas_w / 2.0)) * self.zoom_scale + self.offset_x
+
+    def update_canvas_positions(self):
+        mid_x = self.canvas_w / 2 + self.offset_x
+        mid_y = self.canvas_h / 2 + self.offset_y
+        grid_step = 40 * self.zoom_scale 
+        if grid_step < 5: grid_step = 5
+        
+        line_idx = 0
+        max_lines = len(self.grid_line_ids)
+        
+        x = mid_x
+        while x < self.canvas_w and line_idx < max_lines:
+            self.canvas.coords(self.grid_line_ids[line_idx], x, 0, x, self.canvas_h)
+            x += grid_step
+            line_idx += 1
+        x = mid_x - grid_step
+        while x > 0 and line_idx < max_lines:
+            self.canvas.coords(self.grid_line_ids[line_idx], x, 0, x, self.canvas_h)
+            x -= grid_step
+            line_idx += 1
+        y = mid_y
+        while y < self.canvas_h and line_idx < max_lines:
+            self.canvas.coords(self.grid_line_ids[line_idx], 0, y, self.canvas_w, y)
+            y += grid_step
+            line_idx += 1
+        y = mid_y - grid_step
+        while y > 0 and line_idx < max_lines:
+            self.canvas.coords(self.grid_line_ids[line_idx], 0, y, self.canvas_w, y)
+            y -= grid_step
+            line_idx += 1
             
+        while line_idx < max_lines:
+            self.canvas.coords(self.grid_line_ids[line_idx], -10, -10, -10, -10)
+            line_idx += 1
+            
+        self.canvas.coords(self.axis_line_ids[0], mid_x, 0, mid_x, self.canvas_h)
+        self.canvas.coords(self.axis_line_ids[1], 0, mid_y, self.canvas_w, mid_y)
+        
+        x_min = self.to_pixels(-1.0)
+        x_max = self.to_pixels(1.0)
+        y_min = self.to_pixels(-0.5, True)
+        y_max = self.to_pixels(0.5, True)
+        
+        self.canvas.coords(self.frame_line_ids[0], x_min + 1, y_min + 1, x_max - 2, y_min + 1)
+        self.canvas.coords(self.frame_line_ids[1], x_max - 2, y_min + 1, x_max - 2, y_max)
+        self.canvas.coords(self.frame_line_ids[2], x_max - 2, y_max, x_min + 1, y_max)
+        self.canvas.coords(self.frame_line_ids[3], x_min + 1, y_max, x_min + 1, y_min + 1)
+        
+        if self.current_json_data and len(self.sight_element_ids) == len(self.current_json_data):
+            for obj_id, val in zip(self.sight_element_ids, self.current_json_data.values()):
+                if val.get("type") == "line":
+                    self.canvas.coords(
+                        obj_id,
+                        self.to_pixels(val["start"]["x"]), self.to_pixels(val["start"]["y"], True),
+                        self.to_pixels(val["end"]["x"]), self.to_pixels(val["end"]["y"], True)
+                    )
+                elif val.get("type") == "quad":
+                    self.canvas.coords(
+                        obj_id,
+                        self.to_pixels(val["pos1"]["x"]), self.to_pixels(val["pos1"]["y"], True),
+                        self.to_pixels(val["pos2"]["x"]), self.to_pixels(val["pos2"]["y"], True),
+                        self.to_pixels(val["pos3"]["x"]), self.to_pixels(val["pos3"]["y"], True),
+                        self.to_pixels(val["pos4"]["x"]), self.to_pixels(val["pos4"]["y"], True)
+                    )
+
     def redraw_sight(self):
-        self.canvas.delete("all")
-        self.draw_grid_and_cross()
-        if not self.current_json_data: return
+        if self.sight_element_ids:
+            for el_id in self.sight_element_ids:
+                self.canvas.delete(el_id)
+            self.sight_element_ids.clear()
+            
+        if not self.current_json_data:
+            self.update_canvas_positions()
+            return
+            
         for val in self.current_json_data.values():
             if val.get("type") == "line":
-                self.canvas.create_line(
-                    self.to_pixels(val["start"]["x"]), self.to_pixels(val["start"]["y"], True), 
-                    self.to_pixels(val["end"]["x"]), self.to_pixels(val["end"]["y"], True), 
-                    fill=self.sight_color, width=1
-                )
+                line_id = self.canvas.create_line(0, 0, 0, 0, fill=self.sight_color, width=1)
+                self.sight_element_ids.append(line_id)
             elif val.get("type") == "quad":
-                self.canvas.create_polygon(
-                    self.to_pixels(val["pos1"]["x"]), self.to_pixels(val["pos1"]["y"], True), 
-                    self.to_pixels(val["pos2"]["x"]), self.to_pixels(val["pos2"]["y"], True), 
-                    self.to_pixels(val["pos3"]["x"]), self.to_pixels(val["pos3"]["y"], True), 
-                    self.to_pixels(val["pos4"]["x"]), self.to_pixels(val["pos4"]["y"], True), 
-                    outline=self.sight_color, fill=self.sight_color, width=1
-                )
+                quad_id = self.canvas.create_polygon(0, 0, 0, 0, 0, 0, 0, 0, outline=self.sight_color, fill=self.sight_color, width=1, smooth=True)
+                self.sight_element_ids.append(quad_id)
+                
+        self.update_canvas_positions()
                 
     def process_file(self, file_path):
         if isinstance(file_path, bytes): 
             try: file_path = file_path.decode('cp1251')
             except UnicodeDecodeError: file_path = file_path.decode('utf-8', errors='ignore')
         ext = os.path.splitext(file_path)[1].lower()
+        
         if ext == '.blk':
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f: content = f.read()
@@ -489,31 +649,55 @@ class ConverterApp:
                     self.text_editor.delete("1.0", tk.END)
                     self.text_editor.insert("1.0", saved_blk_header)
                 json_data = parse_blk_to_json(content)
-                if not json_data: raise Exception("В BLK не найдено элементов.")
-                output_path = os.path.splitext(file_path)[0] + '.json'
-                with open(output_path, 'w', encoding='utf-8') as f: json.dump(json_data, f, separators=(',', ':'), ensure_ascii=False)
+                if not json_data: raise Exception("В файле BLK не найдено подходящих элементов.")
                 self.current_json_data = json_data
                 self.current_file_path = file_path
-                self.reset_view()
-                self.status_label.config(text=f"[SUCCESS] Сгенерирован JSON: {os.path.basename(output_path)}", fg="#00ff66")
-            except Exception as e: self.status_label.config(text=f"[ERROR] Ошибка BLK: {str(e)}", fg="#ff4d4d")
+                self.redraw_sight()
+                self.log_message(f"Статус: Импортирован файл {os.path.basename(file_path)}. Готов к конвертации.", self.fg_accent)
+            except Exception as e: self.log_message(f"Ошибка: {str(e)}", "#ff4d4d")
         elif ext == '.json':
             try:
                 with open(file_path, 'r', encoding='utf-8') as f: json_data = json.load(f)
                 self.current_json_data = json_data
                 self.current_file_path = file_path
-                self.reset_view()
-                blk_content = pack_json_to_blk(json_data, self.text_editor.get("1.0", tk.END))
-                output_path = os.path.splitext(file_path)[0] + '_packed.blk'
-                with open(output_path, 'w', encoding='utf-8') as f: f.write(blk_content)
-                self.status_label.config(text=f"[SUCCESS] Собрано в оригинальный BLK!", fg="#00ffff")
-            except Exception as e: self.status_label.config(text=f"[ERROR] Ошибка JSON: {str(e)}", fg="#ff4d4d")
+                self.redraw_sight()
+                self.log_message(f"Статус: Загружен JSON {os.path.basename(file_path)}. Готов к сборке в BLK.", self.fg_accent)
+            except Exception as e: self.log_message(f"Ошибка: {str(e)}", "#ff4d4d")
+
+    def trigger_conversion_hotkey(self):
+        self.trigger_conversion()
+        return "break"
+
+    def trigger_conversion(self):
+        if not self.current_file_path:
+            self.log_message("Ошибка: Сначала импортируйте исходный файл!", "#ff4d4d")
+            return
+            
+        ext = os.path.splitext(self.current_file_path)[1].lower()
+        if ext == '.blk':
+            try:
+                output_path = os.path.splitext(self.current_file_path)[0] + '.json'
+                with open(output_path, 'w', encoding='utf-8') as f: 
+                    json.dump(self.current_json_data, f, separators=(',', ':'), ensure_ascii=False)
+                self.log_message(f"Успешно: Файл JSON сгенерирован -> {os.path.basename(output_path)}", self.fg_accent)
+            except Exception as e: 
+                self.log_message(f"Ошибка сохранения JSON: {str(e)}", "#ff4d4d")
+        elif ext == '.json':
+            try:
+                blk_content = pack_json_to_blk(self.current_json_data, self.text_editor.get("1.0", tk.END))
+                output_path = os.path.splitext(self.current_file_path)[0] + '_packed.blk'
+                with open(output_path, 'w', encoding='utf-8') as f: 
+                    f.write(blk_content)
+                self.log_message(f"Успешно: Файл BLK собран -> {os.path.basename(output_path)}", self.fg_accent)
+            except Exception as e: 
+                self.log_message(f"Ошибка сборки BLK: {str(e)}", "#ff4d4d")
             
     def reload_current_file(self):
         if self.current_file_path and os.path.exists(self.current_file_path):
             self.process_file(self.current_file_path)
             text = self.status_label.cget("text")
-            self.status_label.config(text=f"[🔄 ОБНОВЛЕНО] {text}")
+            if not text.startswith("Обновлено:"):
+                self.status_label.config(text=f"Обновлено: {text}")
             
     def handle_drop(self, files):
         if files: self.process_file(files[0])
