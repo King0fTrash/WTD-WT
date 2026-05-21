@@ -17,7 +17,7 @@
 
 <h3 align="center">Графический интерфейс и Drag-and-Drop</h3>
 <p align="center">
-  <img src="https://i.ibb.co/xSW0bbwC/2026-05-20-183548.png" width="750" alt="Интерфейс">
+  <img src="https://i.ibb.co/ZpzkZT5b/2026-05-22-000743.png" width="750" alt="Интерфейс">
 </p>
 <p align="center">Программа обладает интуитивным интерфейсом. Функция <b>Drag-and-Drop</b> позволяет удобнее обрабатывать файлы, просто перетащив их мышкой прямо в окно приложения</p>
 
@@ -25,7 +25,7 @@
 
 <h3 align="center">Предпросмотр прицела</h3>
 <p align="center">
-  <img src="https://i.ibb.co/xSPv8638/image.png" width="750" alt="Предпросмотр">
+  <img src="https://i.ibb.co/jP10gFr2/2026-05-22-000826.png" width="750" alt="Предпросмотр">
 </p>
 <p align="center">При конвертации <code>.blk ⇄ .json</code> на встроенном холсте автоматически отображается примитивная интерактивная миниатюра-предпросмотр геометрии самого прицела</p>
 
@@ -36,7 +36,7 @@
 
 <h3 align="center">Настройки и шаблоны BLK</h3>
 <p align="center">
-  <img src="https://i.ibb.co/6J0BDkQs/2026-05-20-183716.png" width="750" alt="Настройка">
+  <img src="https://i.ibb.co/jP10gFr2/2026-05-22-000826.png" width="750" alt="Настройка">
 </p>
 <p align="center">Утилита имеет встроенный текстовый редактор конфигураций. Вы можете изменять настройки выходящего BLK-файла, которая автоматически применится при сборке из <code>.json</code> в оригинальный <code>.blk</code>.</p>
 
